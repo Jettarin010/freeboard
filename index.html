@@ -3,280 +3,405 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32 Realtime Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <title>EnviroSense IoT — Smart Environment Monitor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
+    :root {
+      --bg: #070b14;
+      --surface: rgba(255,255,255,0.04);
+      --surface2: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.08);
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --c-temp:  #ff6b6b;
+      --c-humi:  #4dabf7;
+      --c-light: #ffd43b;
+      --c-co2:   #b197fc;
+      --c-pres:  #38d9a9;
+      --c-noise: #f783ac;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: 'Kanit', sans-serif;
-      background: #f0f4f8;
-      color: #1a202c;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
+      overflow-x: hidden;
     }
 
-    /* ===== HEADER ===== */
+    /* ─── AMBIENT BG ─── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 10% 10%, rgba(99,102,241,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 90% 80%, rgba(6,182,212,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 50% 50%, rgba(168,85,247,0.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ─── HEADER ─── */
     header {
-      background: white;
+      position: relative; z-index: 10;
+      background: rgba(7,11,20,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
       padding: 0 2rem;
-      height: 64px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-      position: sticky; top: 0; z-index: 100;
+      height: 68px;
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .logo {
-      display: flex; align-items: center; gap: 0.75rem;
+    .brand {
+      display: flex; align-items: center; gap: 0.8rem;
     }
-    .logo-badge {
-      background: linear-gradient(135deg, #4facfe, #00f2fe);
-      color: white; font-weight: 700; font-size: 0.85rem;
-      padding: 0.3rem 0.6rem; border-radius: 8px;
+    .brand-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: linear-gradient(135deg, #6366f1, #06b6d4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; font-weight: 700; color: white;
+      box-shadow: 0 0 20px rgba(99,102,241,0.5);
     }
-    .logo-title { font-size: 1.3rem; font-weight: 700; color: #1a202c; }
-    .logo-sub { font-size: 0.75rem; color: #718096; font-weight: 400; }
-    .live-badge {
-      display: flex; align-items: center; gap: 0.4rem;
-      background: #f0fff4; border: 1px solid #9ae6b4;
-      color: #276749; font-size: 0.8rem; font-weight: 500;
-      padding: 0.35rem 0.8rem; border-radius: 99px;
+    .brand-name {
+      font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em;
+      background: linear-gradient(90deg, #e2e8f0, #94a3b8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-    .live-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #48bb78;
-      animation: pulse 1.5s infinite;
+    .brand-sub { font-size: 0.72rem; color: var(--muted); font-weight: 300; }
+
+    .header-right { display: flex; align-items: center; gap: 1rem; }
+    .badge-live {
+      display: flex; align-items: center; gap: 0.45rem;
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.3);
+      color: #34d399; font-size: 0.78rem; font-weight: 500;
+      padding: 0.35rem 0.85rem; border-radius: 99px;
+      letter-spacing: 0.02em;
     }
-    @keyframes pulse {
-      0%,100% { opacity: 0.6; transform: scale(0.9); }
-      50% { opacity: 1; transform: scale(1.2); }
+    .dot-live {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 8px #34d399;
+      animation: blink 1.4s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+    .badge-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem; color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.85rem; border-radius: 8px;
     }
 
-    /* ===== MAIN ===== */
-    main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+    /* ─── MAIN ─── */
+    main { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 1.5rem 1.5rem 3rem; }
 
-    /* ===== DEVICE CARD ===== */
-    .device-card {
-      background: white; border-radius: 12px; padding: 1rem 1.5rem;
+    /* ─── DEVICE BAR ─── */
+    .device-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 1rem 1.5rem;
       display: flex; justify-content: space-between; align-items: center;
       margin-bottom: 1.5rem;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      backdrop-filter: blur(10px);
     }
-    .device-name { font-size: 1.1rem; font-weight: 600; }
-    .device-path { font-size: 0.8rem; color: #4299e1; margin-top: 2px; }
-    .device-time { text-align: right; }
-    .device-time .clock { font-size: 1.4rem; font-weight: 600; }
-    .device-time .update-info { font-size: 0.75rem; color: #718096; margin-top: 2px; }
+    .device-info { display: flex; align-items: center; gap: 0.75rem; }
+    .device-chip {
+      background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(6,182,212,0.2));
+      border: 1px solid rgba(99,102,241,0.3);
+      color: #a5b4fc; font-size: 0.75rem; font-weight: 600;
+      padding: 0.25rem 0.6rem; border-radius: 6px;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .device-name { font-size: 1rem; font-weight: 600; }
+    .device-path { font-size: 0.75rem; color: #38d9a9; font-family: 'JetBrains Mono', monospace; }
+    .device-stats { display: flex; gap: 2rem; text-align: right; }
+    .stat-item .stat-label { font-size: 0.7rem; color: var(--muted); margin-bottom: 2px; }
+    .stat-item .stat-val { font-size: 0.9rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
 
-    /* ===== SENSOR CARDS ===== */
+    /* ─── SENSOR CARDS ─── */
     .sensor-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1.5rem;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem; margin-bottom: 1.5rem;
     }
-    .sensor-card {
-      background: white; border-radius: 12px; padding: 1.2rem 1.5rem;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    @media (max-width: 768px) { .sensor-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) { .sensor-grid { grid-template-columns: 1fr; } }
+
+    .scard {
       position: relative; overflow: hidden;
-      transition: transform 0.2s, box-shadow 0.2s;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.25rem;
+      backdrop-filter: blur(10px);
+      transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
     }
-    .sensor-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
-    .sensor-header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 0.6rem;
+    .scard:hover {
+      transform: translateY(-4px);
     }
-    .sensor-label {
-      display: flex; align-items: center; gap: 0.4rem;
-      font-size: 0.85rem; color: #718096; font-weight: 400;
+    /* Glow on hover */
+    .scard-temp:hover  { border-color: rgba(255,107,107,0.4); box-shadow: 0 8px 30px rgba(255,107,107,0.15); }
+    .scard-humi:hover  { border-color: rgba(77,171,247,0.4);  box-shadow: 0 8px 30px rgba(77,171,247,0.15); }
+    .scard-light:hover { border-color: rgba(255,212,59,0.4);  box-shadow: 0 8px 30px rgba(255,212,59,0.15); }
+    .scard-co2:hover   { border-color: rgba(177,151,252,0.4); box-shadow: 0 8px 30px rgba(177,151,252,0.15); }
+    .scard-pres:hover  { border-color: rgba(56,217,169,0.4);  box-shadow: 0 8px 30px rgba(56,217,169,0.15); }
+    .scard-noise:hover { border-color: rgba(247,131,172,0.4); box-shadow: 0 8px 30px rgba(247,131,172,0.15); }
+
+    /* Accent bar top */
+    .scard::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      border-radius: 14px 14px 0 0;
     }
-    .sensor-label .dot {
-      width: 10px; height: 10px; border-radius: 50%;
+    .scard-temp::before  { background: linear-gradient(90deg, var(--c-temp),  transparent); }
+    .scard-humi::before  { background: linear-gradient(90deg, var(--c-humi),  transparent); }
+    .scard-light::before { background: linear-gradient(90deg, var(--c-light), transparent); }
+    .scard-co2::before   { background: linear-gradient(90deg, var(--c-co2),   transparent); }
+    .scard-pres::before  { background: linear-gradient(90deg, var(--c-pres),  transparent); }
+    .scard-noise::before { background: linear-gradient(90deg, var(--c-noise), transparent); }
+
+    .scard-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+    .scard-icon-wrap {
+      width: 36px; height: 36px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
     }
-    .sensor-delta {
-      font-size: 0.75rem; font-weight: 500; padding: 0.15rem 0.5rem;
-      border-radius: 99px;
+    .scard-temp  .scard-icon-wrap { background: rgba(255,107,107,0.15); }
+    .scard-humi  .scard-icon-wrap { background: rgba(77,171,247,0.15); }
+    .scard-light .scard-icon-wrap { background: rgba(255,212,59,0.15); }
+    .scard-co2   .scard-icon-wrap { background: rgba(177,151,252,0.15); }
+    .scard-pres  .scard-icon-wrap { background: rgba(56,217,169,0.15); }
+    .scard-noise .scard-icon-wrap { background: rgba(247,131,172,0.15); }
+
+    .scard-delta {
+      font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.5rem;
+      border-radius: 6px; font-family: 'JetBrains Mono', monospace;
     }
-    .delta-up { background: #fff5f5; color: #e53e3e; }
-    .delta-down { background: #f0fff4; color: #38a169; }
-    .sensor-value {
-      font-size: 2.8rem; font-weight: 700; line-height: 1;
-      margin: 0.3rem 0;
+    .delta-up   { background: rgba(239,68,68,0.15);  color: #f87171; }
+    .delta-down { background: rgba(16,185,129,0.15); color: #34d399; }
+    .delta-neu  { background: rgba(100,116,139,0.15); color: var(--muted); }
+
+    .scard-value {
+      font-size: 2.6rem; font-weight: 700; line-height: 1;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -0.02em;
     }
-    .sensor-key { font-size: 0.75rem; color: #a0aec0; }
-    .sensor-minmax {
-      font-size: 0.75rem; color: #718096; margin-top: 0.4rem;
-      text-align: right;
+    .scard-temp  .scard-value { color: var(--c-temp); }
+    .scard-humi  .scard-value { color: var(--c-humi); }
+    .scard-light .scard-value { color: var(--c-light); }
+    .scard-co2   .scard-value { color: var(--c-co2); }
+    .scard-pres  .scard-value { color: var(--c-pres); }
+    .scard-noise .scard-value { color: var(--c-noise); }
+
+    .scard-unit { font-size: 0.9rem; color: var(--muted); margin-left: 4px; }
+    .scard-label { font-size: 0.78rem; color: var(--muted); margin-top: 0.5rem; }
+    .scard-minmax {
+      font-size: 0.72rem; color: var(--muted); margin-top: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      border-top: 1px solid var(--border); padding-top: 0.5rem;
+      display: flex; justify-content: space-between;
     }
 
-    /* Colors per sensor */
-    .c-temp   { color: #e53e3e; }
-    .c-humi   { color: #3182ce; }
-    .c-light  { color: #d69e2e; }
-    .c-co2    { color: #805ad5; }
-    .c-pres   { color: #00b5d8; }
-    .c-noise  { color: #d53f8c; }
-
-    .dot-temp   { background: #e53e3e; }
-    .dot-humi   { background: #3182ce; }
-    .dot-light  { background: #d69e2e; }
-    .dot-co2    { background: #805ad5; }
-    .dot-pres   { background: #00b5d8; }
-    .dot-noise  { background: #d53f8c; }
-
-    /* ===== CHART CARDS ===== */
+    /* ─── CHARTS ─── */
+    .charts-title {
+      font-size: 0.8rem; color: var(--muted); font-weight: 400;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      margin-bottom: 1rem; padding-left: 0.25rem;
+    }
     .chart-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 1rem;
     }
-    .chart-card {
-      background: white; border-radius: 12px; padding: 1.2rem 1.5rem;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    @media (max-width: 900px) { .chart-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .chart-grid { grid-template-columns: 1fr; } }
+
+    .cchart {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 1rem 1.2rem;
+      backdrop-filter: blur(10px);
     }
-    .chart-header {
-      display: flex; justify-content: space-between; align-items: flex-start;
-      margin-bottom: 0.5rem;
+    .cchart-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 0.75rem;
     }
-    .chart-title { font-size: 1rem; font-weight: 600; }
-    .chart-sub { font-size: 0.72rem; color: #a0aec0; }
-    .chart-current { font-size: 1.1rem; font-weight: 700; }
-    canvas { width: 100% !important; height: 150px !important; }
+    .cchart-name { font-size: 0.82rem; font-weight: 500; }
+    .cchart-now { font-size: 0.82rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    canvas { display: block; width: 100% !important; height: 110px !important; }
   </style>
 </head>
 <body>
 
 <!-- HEADER -->
 <header>
-  <div class="logo">
-    <div class="logo-badge">IoT</div>
+  <div class="brand">
+    <div class="brand-icon">ES</div>
     <div>
-      <div class="logo-title">ESP32 Realtime Dashboard</div>
-      <div class="logo-sub">Firebase Realtime Database • อัปเดตอัตโนมัติ</div>
+      <div class="brand-name">EnviroSense IoT</div>
+      <div class="brand-sub">Smart Environment Monitoring System — iot-107</div>
     </div>
   </div>
-  <div class="live-badge" id="liveBadge">
-    <div class="live-dot"></div>
-    <span>LIVE • กำลังเชื่อมต่อ...</span>
+  <div class="header-right">
+    <div class="badge-time" id="clock">--:--:--</div>
+    <div class="badge-live" id="liveBadge">
+      <div class="dot-live"></div>
+      <span id="liveText">กำลังเชื่อมต่อ...</span>
+    </div>
   </div>
 </header>
 
 <main>
 
-  <!-- DEVICE INFO -->
-  <div class="device-card">
-    <div>
-      <div class="device-name">DEVICE: ESP32</div>
-      <div class="device-path">/latest</div>
+  <!-- DEVICE BAR -->
+  <div class="device-bar">
+    <div class="device-info">
+      <div class="device-chip">ESP32</div>
+      <div>
+        <div class="device-name">EnviroSense Node #107</div>
+        <div class="device-path">iot-107-default-rtdb / latest</div>
+      </div>
     </div>
-    <div class="device-time">
-      <div class="clock" id="clock">--:--:--</div>
-      <div class="update-info" id="updateInfo">รอข้อมูล...</div>
+    <div class="device-stats">
+      <div class="stat-item">
+        <div class="stat-label">อัปเดตล่าสุด</div>
+        <div class="stat-val" id="lastUpdate">--:--:--</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">จำนวนรับ</div>
+        <div class="stat-val" id="rxCount">0 ครั้ง</div>
+      </div>
     </div>
   </div>
 
   <!-- SENSOR CARDS -->
   <div class="sensor-grid">
-    <div class="sensor-card">
-      <div class="sensor-header">
-        <div class="sensor-label"><div class="dot dot-temp"></div>🌡️ อุณหภูมิ</div>
-        <div class="sensor-delta delta-up" id="delta-temp">--</div>
+    <!-- TEMP -->
+    <div class="scard scard-temp">
+      <div class="scard-head">
+        <div class="scard-icon-wrap">🌡️</div>
+        <div class="scard-delta delta-neu" id="d-temp">— —</div>
       </div>
-      <div class="sensor-value c-temp"><span id="v-temp">--</span> <small style="font-size:1rem">°C</small></div>
-      <div class="sensor-key">temp</div>
-      <div class="sensor-minmax">ต่ำสุด <span id="min-temp">--</span> · สูงสุด <span id="max-temp">--</span></div>
+      <div>
+        <span class="scard-value" id="v-temp">--</span>
+        <span class="scard-unit">°C</span>
+      </div>
+      <div class="scard-label">อุณหภูมิ (Temperature)</div>
+      <div class="scard-minmax">
+        <span>▼ <span id="min-temp">--</span></span>
+        <span>▲ <span id="max-temp">--</span></span>
+      </div>
     </div>
-    <div class="sensor-card">
-      <div class="sensor-header">
-        <div class="sensor-label"><div class="dot dot-humi"></div>💧 ความชื้นสัมพัทธ์</div>
-        <div class="sensor-delta delta-down" id="delta-humi">--</div>
+    <!-- HUMI -->
+    <div class="scard scard-humi">
+      <div class="scard-head">
+        <div class="scard-icon-wrap">💧</div>
+        <div class="scard-delta delta-neu" id="d-humi">— —</div>
       </div>
-      <div class="sensor-value c-humi"><span id="v-humi">--</span> <small style="font-size:1rem">%</small></div>
-      <div class="sensor-key">humi</div>
-      <div class="sensor-minmax">ต่ำสุด <span id="min-humi">--</span> · สูงสุด <span id="max-humi">--</span></div>
+      <div>
+        <span class="scard-value" id="v-humi">--</span>
+        <span class="scard-unit">%</span>
+      </div>
+      <div class="scard-label">ความชื้น (Humidity)</div>
+      <div class="scard-minmax">
+        <span>▼ <span id="min-humi">--</span></span>
+        <span>▲ <span id="max-humi">--</span></span>
+      </div>
     </div>
-    <div class="sensor-card">
-      <div class="sensor-header">
-        <div class="sensor-label"><div class="dot dot-light"></div>☀️ ความสว่าง</div>
-        <div class="sensor-delta delta-up" id="delta-light">--</div>
+    <!-- LIGHT -->
+    <div class="scard scard-light">
+      <div class="scard-head">
+        <div class="scard-icon-wrap">☀️</div>
+        <div class="scard-delta delta-neu" id="d-light">— —</div>
       </div>
-      <div class="sensor-value c-light"><span id="v-light">--</span> <small style="font-size:1rem">lux</small></div>
-      <div class="sensor-key">light</div>
-      <div class="sensor-minmax">ต่ำสุด <span id="min-light">--</span> · สูงสุด <span id="max-light">--</span></div>
+      <div>
+        <span class="scard-value" id="v-light">--</span>
+        <span class="scard-unit">lux</span>
+      </div>
+      <div class="scard-label">ความสว่าง (Light)</div>
+      <div class="scard-minmax">
+        <span>▼ <span id="min-light">--</span></span>
+        <span>▲ <span id="max-light">--</span></span>
+      </div>
     </div>
-    <div class="sensor-card">
-      <div class="sensor-header">
-        <div class="sensor-label"><div class="dot dot-co2"></div>🌿 CO₂</div>
-        <div class="sensor-delta delta-up" id="delta-co2">--</div>
+    <!-- CO2 -->
+    <div class="scard scard-co2">
+      <div class="scard-head">
+        <div class="scard-icon-wrap">🌿</div>
+        <div class="scard-delta delta-neu" id="d-co2">— —</div>
       </div>
-      <div class="sensor-value c-co2"><span id="v-co2">--</span> <small style="font-size:1rem">ppm</small></div>
-      <div class="sensor-key">co2</div>
-      <div class="sensor-minmax">ต่ำสุด <span id="min-co2">--</span> · สูงสุด <span id="max-co2">--</span></div>
+      <div>
+        <span class="scard-value" id="v-co2">--</span>
+        <span class="scard-unit">ppm</span>
+      </div>
+      <div class="scard-label">คาร์บอนไดออกไซด์ (CO₂)</div>
+      <div class="scard-minmax">
+        <span>▼ <span id="min-co2">--</span></span>
+        <span>▲ <span id="max-co2">--</span></span>
+      </div>
     </div>
-    <div class="sensor-card">
-      <div class="sensor-header">
-        <div class="sensor-label"><div class="dot dot-pres"></div>🌀 ความดัน</div>
-        <div class="sensor-delta delta-down" id="delta-pressure">--</div>
+    <!-- PRESSURE -->
+    <div class="scard scard-pres">
+      <div class="scard-head">
+        <div class="scard-icon-wrap">🌀</div>
+        <div class="scard-delta delta-neu" id="d-pressure">— —</div>
       </div>
-      <div class="sensor-value c-pres"><span id="v-pressure">--</span> <small style="font-size:1rem">hPa</small></div>
-      <div class="sensor-key">pressure</div>
-      <div class="sensor-minmax">ต่ำสุด <span id="min-pressure">--</span> · สูงสุด <span id="max-pressure">--</span></div>
+      <div>
+        <span class="scard-value" id="v-pressure">--</span>
+        <span class="scard-unit">hPa</span>
+      </div>
+      <div class="scard-label">ความดันอากาศ (Pressure)</div>
+      <div class="scard-minmax">
+        <span>▼ <span id="min-pressure">--</span></span>
+        <span>▲ <span id="max-pressure">--</span></span>
+      </div>
     </div>
-    <div class="sensor-card">
-      <div class="sensor-header">
-        <div class="sensor-label"><div class="dot dot-noise"></div>🔊 ระดับเสียง</div>
-        <div class="sensor-delta delta-up" id="delta-noise">--</div>
+    <!-- NOISE -->
+    <div class="scard scard-noise">
+      <div class="scard-head">
+        <div class="scard-icon-wrap">🔊</div>
+        <div class="scard-delta delta-neu" id="d-noise">— —</div>
       </div>
-      <div class="sensor-value c-noise"><span id="v-noise">--</span> <small style="font-size:1rem">dB</small></div>
-      <div class="sensor-key">noise</div>
-      <div class="sensor-minmax">ต่ำสุด <span id="min-noise">--</span> · สูงสุด <span id="max-noise">--</span></div>
+      <div>
+        <span class="scard-value" id="v-noise">--</span>
+        <span class="scard-unit">dB</span>
+      </div>
+      <div class="scard-label">ระดับเสียง (Noise)</div>
+      <div class="scard-minmax">
+        <span>▼ <span id="min-noise">--</span></span>
+        <span>▲ <span id="max-noise">--</span></span>
+      </div>
     </div>
   </div>
 
   <!-- CHARTS -->
+  <div class="charts-title">📈 REALTIME HISTORY</div>
   <div class="chart-grid">
-    <div class="chart-card">
-      <div class="chart-header">
-        <div><div class="chart-title">อุณหภูมิ</div><div class="chart-sub">ข้อมูลตั้งแต่เปิดหน้านี้</div></div>
-        <div class="chart-current c-temp" id="cur-temp">-- °C</div>
-      </div>
-      <canvas id="chart-temp"></canvas>
+    <div class="cchart">
+      <div class="cchart-head"><span class="cchart-name">🌡️ อุณหภูมิ</span><span class="cchart-now" id="cn-temp" style="color:var(--c-temp)">-- °C</span></div>
+      <canvas id="ch-temp"></canvas>
     </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <div><div class="chart-title">ความชื้นสัมพัทธ์</div><div class="chart-sub">ข้อมูลตั้งแต่เปิดหน้านี้</div></div>
-        <div class="chart-current c-humi" id="cur-humi">-- %</div>
-      </div>
-      <canvas id="chart-humi"></canvas>
+    <div class="cchart">
+      <div class="cchart-head"><span class="cchart-name">💧 ความชื้น</span><span class="cchart-now" id="cn-humi" style="color:var(--c-humi)">-- %</span></div>
+      <canvas id="ch-humi"></canvas>
     </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <div><div class="chart-title">ความสว่าง</div><div class="chart-sub">ข้อมูลตั้งแต่เปิดหน้านี้</div></div>
-        <div class="chart-current c-light" id="cur-light">-- lux</div>
-      </div>
-      <canvas id="chart-light"></canvas>
+    <div class="cchart">
+      <div class="cchart-head"><span class="cchart-name">☀️ ความสว่าง</span><span class="cchart-now" id="cn-light" style="color:var(--c-light)">-- lux</span></div>
+      <canvas id="ch-light"></canvas>
     </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <div><div class="chart-title">CO₂</div><div class="chart-sub">ข้อมูลตั้งแต่เปิดหน้านี้</div></div>
-        <div class="chart-current c-co2" id="cur-co2">-- ppm</div>
-      </div>
-      <canvas id="chart-co2"></canvas>
+    <div class="cchart">
+      <div class="cchart-head"><span class="cchart-name">🌿 CO₂</span><span class="cchart-now" id="cn-co2" style="color:var(--c-co2)">-- ppm</span></div>
+      <canvas id="ch-co2"></canvas>
     </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <div><div class="chart-title">ความดันอากาศ</div><div class="chart-sub">ข้อมูลตั้งแต่เปิดหน้านี้</div></div>
-        <div class="chart-current c-pres" id="cur-pressure">-- hPa</div>
-      </div>
-      <canvas id="chart-pressure"></canvas>
+    <div class="cchart">
+      <div class="cchart-head"><span class="cchart-name">🌀 ความดัน</span><span class="cchart-now" id="cn-pressure" style="color:var(--c-pres)">-- hPa</span></div>
+      <canvas id="ch-pressure"></canvas>
     </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <div><div class="chart-title">ระดับเสียง</div><div class="chart-sub">ข้อมูลตั้งแต่เปิดหน้านี้</div></div>
-        <div class="chart-current c-noise" id="cur-noise">-- dB</div>
-      </div>
-      <canvas id="chart-noise"></canvas>
+    <div class="cchart">
+      <div class="cchart-head"><span class="cchart-name">🔊 เสียง</span><span class="cchart-now" id="cn-noise" style="color:var(--c-noise)">-- dB</span></div>
+      <canvas id="ch-noise"></canvas>
     </div>
   </div>
 
@@ -286,37 +411,30 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
   import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-database.js";
 
-  const firebaseConfig = {
-    databaseURL: "https://iot-107-default-rtdb.asia-southeast1.firebasedatabase.app"
-  };
-  const app = initializeApp(firebaseConfig);
+  const app = initializeApp({ databaseURL: "https://iot-107-default-rtdb.asia-southeast1.firebasedatabase.app" });
   const db = getDatabase(app);
 
-  // ===== CLOCK =====
-  setInterval(() => {
-    document.getElementById('clock').innerText = new Date().toLocaleTimeString('th-TH');
-  }, 1000);
+  // Clock
+  const clockEl = document.getElementById('clock');
+  setInterval(() => { clockEl.innerText = new Date().toLocaleTimeString('th-TH'); }, 1000);
 
-  // ===== CHARTS SETUP =====
-  const sensors = [
-    { key: 'temp',     label: 'อุณหภูมิ',      color: '#e53e3e', unit: '°C',   dp: 1 },
-    { key: 'humi',     label: 'ความชื้น',       color: '#3182ce', unit: '%',    dp: 1 },
-    { key: 'light',    label: 'ความสว่าง',      color: '#d69e2e', unit: 'lux',  dp: 0 },
-    { key: 'co2',      label: 'CO₂',            color: '#805ad5', unit: 'ppm',  dp: 0 },
-    { key: 'pressure', label: 'ความดัน',         color: '#00b5d8', unit: 'hPa',  dp: 1 },
-    { key: 'noise',    label: 'เสียง',           color: '#d53f8c', unit: 'dB',   dp: 0 },
+  const SENSORS = [
+    { key:'temp',     color:'#ff6b6b', unit:'°C',  dp:1 },
+    { key:'humi',     color:'#4dabf7', unit:'%',   dp:1 },
+    { key:'light',    color:'#ffd43b', unit:'lux', dp:0 },
+    { key:'co2',      color:'#b197fc', unit:'ppm', dp:0 },
+    { key:'pressure', color:'#38d9a9', unit:'hPa', dp:1 },
+    { key:'noise',    color:'#f783ac', unit:'dB',  dp:0 },
   ];
 
-  const charts = {};
-  const historyData = {}; // { key: [values], labels: [times] }
-  const MAX_POINTS = 20;
-  const prevValues = {};
-  const minVals = {};
-  const maxVals = {};
+  const MAX_PTS = 25;
+  const charts = {}, hist = {}, prev = {}, minV = {}, maxV = {};
+  let rxCount = 0;
 
-  sensors.forEach(s => {
-    historyData[s.key] = { values: [], labels: [] };
-    const ctx = document.getElementById('chart-' + s.key).getContext('2d');
+  // Init charts
+  SENSORS.forEach(s => {
+    hist[s.key] = { v: [], t: [] };
+    const ctx = document.getElementById('ch-' + s.key).getContext('2d');
     charts[s.key] = new Chart(ctx, {
       type: 'line',
       data: {
@@ -324,73 +442,76 @@
         datasets: [{
           data: [],
           borderColor: s.color,
-          backgroundColor: s.color + '18',
+          backgroundColor: s.color + '15',
           borderWidth: 2,
-          pointRadius: 3,
+          pointRadius: 2.5,
           pointBackgroundColor: s.color,
           fill: true,
-          tension: 0.4
+          tension: 0.45,
         }]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 300 },
         plugins: { legend: { display: false } },
         scales: {
-          x: { ticks: { font: { family: 'Kanit', size: 10 }, maxRotation: 0 }, grid: { display: false } },
-          y: { ticks: { font: { family: 'Kanit', size: 10 } }, grid: { color: '#f7fafc' } }
+          x: {
+            ticks: { color: '#475569', font: { family: 'JetBrains Mono', size: 9 }, maxRotation: 0, maxTicksLimit: 5 },
+            grid: { color: 'rgba(255,255,255,0.04)' },
+          },
+          y: {
+            ticks: { color: '#475569', font: { family: 'JetBrains Mono', size: 9 } },
+            grid: { color: 'rgba(255,255,255,0.04)' },
+          }
         }
       }
     });
   });
 
-  // ===== FIREBASE LISTENER =====
-  onValue(ref(db, 'latest'), (snapshot) => {
-    const d = snapshot.val();
-    if (!d) return;
+  function fmt(val, dp) { return dp === 0 ? Math.round(val) : val.toFixed(dp); }
 
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const dateStr = now.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  onValue(ref(db, 'latest'), snap => {
+    const d = snap.val(); if (!d) return;
+    rxCount++;
+    document.getElementById('rxCount').innerText = rxCount + ' ครั้ง';
+    const timeStr = new Date().toLocaleTimeString('th-TH');
+    document.getElementById('lastUpdate').innerText = timeStr;
+    document.getElementById('liveText').innerText = 'LIVE — เชื่อมต่อแล้ว';
 
-    document.getElementById('clock').innerText = `${dateStr} ${timeStr}`;
-    document.getElementById('updateInfo').innerText = `ข้อมูลเมื่อ ${timeStr}`;
-    document.getElementById('liveBadge').innerHTML = `<div class="live-dot"></div><span>LIVE • เชื่อมต่อ Firebase แล้ว</span>`;
+    SENSORS.forEach(s => {
+      const val = d[s.key]; if (val == null) return;
+      const f = parseFloat(fmt(val, s.dp));
 
-    sensors.forEach(s => {
-      const val = d[s.key];
-      if (val == null) return;
-
-      const rounded = s.dp === 0 ? Math.round(val) : parseFloat(val.toFixed(s.dp));
-
-      // Update card value
-      document.getElementById('v-' + s.key).innerText = rounded;
-      document.getElementById('cur-' + s.key).innerText = rounded + ' ' + s.unit;
+      document.getElementById('v-' + s.key).innerText = f;
+      document.getElementById('cn-' + s.key).innerText = f + ' ' + s.unit;
 
       // Delta
-      const deltaEl = document.getElementById('delta-' + s.key);
-      if (prevValues[s.key] != null) {
-        const diff = val - prevValues[s.key];
-        const sign = diff >= 0 ? '▲' : '▼';
-        deltaEl.innerText = sign + ' ' + Math.abs(diff).toFixed(s.dp);
-        deltaEl.className = 'sensor-delta ' + (diff >= 0 ? 'delta-up' : 'delta-down');
+      const de = document.getElementById('d-' + s.key);
+      if (prev[s.key] != null) {
+        const diff = val - prev[s.key];
+        const abs = Math.abs(diff).toFixed(s.dp);
+        if (Math.abs(diff) < 0.05) {
+          de.textContent = '= ' + abs; de.className = 'scard-delta delta-neu';
+        } else if (diff > 0) {
+          de.textContent = '▲ ' + abs; de.className = 'scard-delta delta-up';
+        } else {
+          de.textContent = '▼ ' + abs; de.className = 'scard-delta delta-down';
+        }
       }
-      prevValues[s.key] = val;
+      prev[s.key] = val;
 
       // Min/Max
-      if (minVals[s.key] == null || val < minVals[s.key]) minVals[s.key] = val;
-      if (maxVals[s.key] == null || val > maxVals[s.key]) maxVals[s.key] = val;
-      document.getElementById('min-' + s.key).innerText = s.dp === 0 ? Math.round(minVals[s.key]) : minVals[s.key].toFixed(s.dp);
-      document.getElementById('max-' + s.key).innerText = s.dp === 0 ? Math.round(maxVals[s.key]) : maxVals[s.key].toFixed(s.dp);
+      if (minV[s.key] == null || val < minV[s.key]) minV[s.key] = val;
+      if (maxV[s.key] == null || val > maxV[s.key]) maxV[s.key] = val;
+      document.getElementById('min-' + s.key).innerText = fmt(minV[s.key], s.dp);
+      document.getElementById('max-' + s.key).innerText = fmt(maxV[s.key], s.dp);
 
-      // Update chart
-      const h = historyData[s.key];
-      h.values.push(rounded);
-      h.labels.push(timeStr);
-      if (h.values.length > MAX_POINTS) { h.values.shift(); h.labels.shift(); }
-
-      charts[s.key].data.labels = h.labels;
-      charts[s.key].data.datasets[0].data = h.values;
+      // Chart
+      hist[s.key].v.push(f);
+      hist[s.key].t.push(timeStr);
+      if (hist[s.key].v.length > MAX_PTS) { hist[s.key].v.shift(); hist[s.key].t.shift(); }
+      charts[s.key].data.labels = hist[s.key].t;
+      charts[s.key].data.datasets[0].data = hist[s.key].v;
       charts[s.key].update('none');
     });
   });
